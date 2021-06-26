@@ -8,6 +8,7 @@ ca:
     locality: Locality
     streetAddress: 42 Street Name
     postalCode: 99999
+    commonName: test
 
 cert:
   - name: cert1
@@ -24,3 +25,4 @@ cert:
       locality: Locality
       streetAddress: 43 Other Street
       postalCode: 99998
+      commonName: cert1

@@ -14,6 +14,7 @@ type Dn struct {
 	Locality      string `yaml:"locality"`
 	StreetAddress string `yaml:"streetAddress"`
 	PostalCode    string `yaml:"postalCode"`
+	CommonName    string `yaml:"commonName"`
 }
 
 type Config struct {

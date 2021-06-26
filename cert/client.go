@@ -1,4 +1,4 @@
-package main
+package cert
 
 import (
 	"bytes"
@@ -12,16 +12,9 @@ import (
 	"os"
 	"strings"
 	"time"
-)
 
-type CertAuth struct {
-	ExpiryTime int
-	CAName     pkix.Name
-	CertReq    *x509.Certificate
-	Key        *rsa.PrivateKey
-	PemCert    string
-	PemKey     string
-}
+	"git.neveris.one/gryffyn/genca/config"
+)
 
 type CertClient struct {
 	Name       string
@@ -35,37 +28,39 @@ type CertClient struct {
 	PemKey     string
 }
 
-func (ca *CertAuth) genCertReq() {
-	cert := &x509.Certificate{
-		SerialNumber:          big.NewInt(2019),
-		Subject:               ca.CAName,
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(ca.ExpiryTime, 0, 0),
-		IsCA:                  true,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
+func CertsFromConfig(cfg config.Config) []CertClient {
+	var certs []CertClient
+	for _, cert := range cfg.Cert {
+		client := CertClient{
+			Name:       cert.Name,
+			ExpiryTime: cert.ExpiryTime,
+			CAName: pkix.Name{
+				Country: []string{
+					cert.Dn.Country,
+				},
+				Organization: []string{
+					cert.Dn.Organization,
+				},
+				Locality: []string{
+					cert.Dn.Locality,
+				},
+				Province: []string{
+					cert.Dn.Province,
+				},
+				StreetAddress: []string{
+					cert.Dn.StreetAddress,
+				},
+				PostalCode: []string{
+					cert.Dn.PostalCode,
+				},
+				CommonName: cert.Dn.CommonName,
+			},
+			IP:  cert.Ip,
+			DNS: cert.Dns,
+		}
+		certs = append(certs, client)
 	}
-	ca.CertReq = cert
-}
-
-func (ca *CertAuth) genKey() error {
-	key, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return err
-	}
-	ca.Key = key
-	ca.PemKey = pemEncodeKey(key)
-	return nil
-}
-
-func (ca *CertAuth) genCert() error {
-	cert, err := x509.CreateCertificate(rand.Reader, ca.CertReq, ca.CertReq, &ca.Key.PublicKey, ca.Key)
-	if err != nil {
-		return err
-	}
-	ca.PemCert = pemEncodeCert(cert)
-	return nil
+	return certs
 }
 
 func pemEncodeCert(cert []byte) string {
@@ -129,15 +124,15 @@ func (cc *CertClient) genCert(ca *CertAuth) error {
 func (cc *CertClient) writeCert(path string) error {
 	var fullpath string
 	if strings.HasSuffix(path, "/") {
-		fullpath = path + cc.Name
+		fullpath = path + cc.Name + "/"
 	} else {
-		fullpath = path + "/" + cc.Name
+		fullpath = path + "/" + cc.Name + "/"
 	}
 	err := os.MkdirAll(fullpath, 0755)
 	if err != nil {
 		return err
 	}
-	out, err := os.Create(cc.Name + ".crt")
+	out, err := os.Create(fullpath + cc.Name + ".crt")
 	if err != nil {
 		return err
 	}
@@ -153,15 +148,15 @@ func (cc *CertClient) writeCert(path string) error {
 func (cc *CertClient) writeKey(path string) error {
 	var fullpath string
 	if strings.HasSuffix(path, "/") {
-		fullpath = path + cc.Name
+		fullpath = path + cc.Name + "/"
 	} else {
-		fullpath = path + "/" + cc.Name
+		fullpath = path + "/" + cc.Name + "/"
 	}
 	err := os.MkdirAll(fullpath, 0755)
 	if err != nil {
 		return err
 	}
-	out, err := os.Create(fullpath + ".key")
+	out, err := os.Create(fullpath + cc.Name + ".key")
 	if err != nil {
 		return err
 	}
@@ -174,48 +169,19 @@ func (cc *CertClient) writeKey(path string) error {
 	return nil
 }
 
-func (ca *CertAuth) writeKey(path string) error {
-	var fullpath string
-	if strings.HasSuffix(path, "/") {
-		fullpath = path + "ca"
-	} else {
-		fullpath = path + "/" + "ca"
-	}
-	err := os.MkdirAll(fullpath, 0755)
-	if err != nil {
-		return err
-	}
-	out, err := os.Create(fullpath + ".key")
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = out.WriteString(ca.PemKey)
+func (cc *CertClient) GenCert(ca *CertAuth) error {
+	cc.genCertReq()
+	err := cc.genKey()
+	err = cc.genCert(ca)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (ca *CertAuth) writeCert(path string) error {
-	var fullpath string
-	if strings.HasSuffix(path, "/") {
-		fullpath = path + "ca"
-	} else {
-		fullpath = path + "/" + "ca"
-	}
-	err := os.MkdirAll(fullpath, 0755)
-	if err != nil {
-		return err
-	}
-	out, err := os.Create(fullpath + ".crt")
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = out.WriteString(ca.PemCert)
+func (cc *CertClient) Write(path string) error {
+	err := cc.writeCert(path)
+	err = cc.writeKey(path)
 	if err != nil {
 		return err
 	}
