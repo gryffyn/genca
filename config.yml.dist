@@ -1,0 +1,26 @@
+ca:
+  # time is in years
+  expiryTime: 10
+  dn:
+    organization: Company Ltd
+    country: Canada
+    province: Ontario
+    locality: Locality
+    streetAddress: 42 Street Name
+    postalCode: 99999
+
+cert:
+  - name: cert1
+    # time is in years
+    expiryTime: 10
+    dns:
+      - test.tld
+    ip:
+      - 127.0.0.1
+    dn:
+      organization: Company Ltd
+      country: Canada
+      province: Manitoba
+      locality: Locality
+      streetAddress: 43 Other Street
+      postalCode: 99998
